@@ -1,0 +1,173 @@
+﻿@page "/productos"
+@using System.Collections.Generic
+@using System.ComponentModel.DataAnnotations
+
+<h3>Gestión de Productos</h3>
+
+@if (showInventorySummary)
+{
+    <h4>Concentrado de Existencias</h4>
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Departamento</th>
+                <th>Cantidad</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var department in departments)
+            {
+                <tr>
+                    <td>@department.Key</td>
+                    <td>@department.Value</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+    <button @onclick="ShowProductList">Listado</button>
+}
+else
+{
+    <EditForm Model="@product" OnValidSubmit="HandleValidSubmit">
+        <DataAnnotationsValidator />
+        <ValidationSummary />
+
+        <div class="mb-3">
+            <label for="inventoryNumber" class="form-label">Número de Inventario:</label>
+            <InputNumber id="inventoryNumber" @bind-Value="product.InventoryNumber" class="form-control" />
+            <ValidationMessage For="@(() => product.InventoryNumber)" />
+        </div>
+
+        <div class="mb-3">
+            <label for="productName" class="form-label">Nombre del Producto:</label>
+            <InputText id="productName" @bind-Value="product.Name" class="form-control" />
+            <ValidationMessage For="@(() => product.Name)" />
+        </div>
+
+        <div class="mb-3">
+            <label for="department" class="form-label">Departamento:</label>
+            <InputSelect id="department" @bind-Value="product.Department" class="form-control">
+                <option value="">Seleccione un departamento</option>
+                <option value="Frutas">Frutas</option>
+                <option value="Verduras">Verduras</option>
+                <option value="Lácteos">Lácteos</option>
+            </InputSelect>
+            <ValidationMessage For="@(() => product.Department)" />
+        </div>
+
+        @if (!string.IsNullOrEmpty(errorMessage))
+        {
+            <div class="alert alert-danger">@errorMessage</div>
+        }
+
+        <button type="submit" class="btn btn-primary">Guardar</button>
+    </EditForm>
+
+    <h4>Lista de Productos</h4>
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Número de Inventario</th>
+                <th>Nombre</th>
+                <th>Departamento</th>
+                <th>Acciones</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var item in products)
+            {
+                <tr>
+                    <td>@item.InventoryNumber</td>
+                    <td>@item.Name</td>
+                    <td>@item.Department</td>
+                    <td>
+                        <button @onclick="() => EditProduct(item)">Modificar</button>
+                        <button @onclick="() => DeleteProduct(item)">Eliminar</button>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+
+    <button @onclick="ShowInventorySummary">Existencias</button>
+}
+
+@code {
+    private Product product = new Product();
+    private List<Product> products = new List<Product>();
+    private Dictionary<string, int> departments = new Dictionary<string, int>
+    {
+        { "Frutas", 0 },
+        { "Verduras", 0 },
+        { "Lácteos", 0 }
+    };
+    private bool showInventorySummary = false;
+    private string errorMessage;
+
+    private void HandleValidSubmit()
+    {
+        // Validar número de inventario único
+        if (products.Exists(p => p.InventoryNumber == product.InventoryNumber))
+        {
+            errorMessage = "El número de inventario ya está registrado.";
+            return;
+        }
+
+        // Guardar producto
+        products.Add(new Product
+        {
+            InventoryNumber = product.InventoryNumber,
+            Name = product.Name,
+            Department = product.Department
+        });
+
+        // Actualizar existencias
+        departments[product.Department]++;
+
+        // Limpiar formulario
+        product = new Product();
+        errorMessage = null;
+    }
+
+    private void DeleteProduct(Product item)
+    {
+        products.Remove(item);
+        departments[item.Department]--;
+
+        // Actualizar el mensaje si la lista de productos queda vacía
+        if (products.Count == 0)
+        {
+            errorMessage = null;
+        }
+    }
+
+    private void EditProduct(Product item)
+    {
+        product = item;
+        products.Remove(item);
+    }
+
+    private void ShowInventorySummary()
+    {
+        showInventorySummary = true;
+    }
+
+    private void ShowProductList()
+    {
+        showInventorySummary = false;
+    }
+
+    public class Product
+    {
+        [Required(ErrorMessage = "Número de inventario es requerido.")]
+        [Range(1, int.MaxValue, ErrorMessage = "El número de inventario debe ser un número entero positivo.")]
+        public int InventoryNumber { get; set; }
+
+        [Required(ErrorMessage = "Nombre del producto es requerido.")]
+        [StringLength(200, ErrorMessage = "El nombre no puede exceder los 200 caracteres.")]
+        public string Name { get; set; }
+
+        [Required(ErrorMessage = "Departamento es requerido.")]
+        public string Department { get; set; }
+    }
+}
